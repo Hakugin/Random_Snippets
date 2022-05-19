@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+#----------------------------------------------------------------
+# Spotify Authentication Code rewrite for Jab's PolyPop plugin
+# Work in progress, use with extreme caution
+#----------------------------------------------------------------
+
 import spotipy
 import time
 from pathlib import Path # I use this instead of os.path
