@@ -21,15 +21,19 @@ CACHE_FILE = Path(r'{}/.cache'.format(TEMP_PATH))
 # Spotify Required
 CLIENT_ID     = ''
 CLIENT_SECRET = ''
-SCOPE         = "user-read-playback-state,user-library-read,user-modify-playback-state,user-read-currently-playing"
+SCOPE         = "user-read-playback-state,user-library-read,user-modify-playback-state,user-read-currently-playing,playlist-read-private"
 REDIRECT_URI  = "http://localhost:38042"
 CACHE_FILE_HANDLER = spotipy.cache_handler.CacheFileHandler(CACHE_FILE)
 
+# Note: Added playlist-read-private to scope to retrieve private playlists
+
 
 # "Globals"
-CONNECT_STATE = False # Allowed: True | False
+#CONNECT_STATE = False # Allowed: True | False (Not implemented yet)
 SHUFFLE_STATE = False # Allowed: True | False
 REPEAT_STATE  = 'off' # Allowed: 'track' | 'context' | 'off'
+CURRENT_VOL   = 25    # Set to an arbitrary low number
+ALL_PLAYLISTS = {}
 
 
 # Volume Formatting
@@ -119,6 +123,8 @@ def remove_file(doomed_file):
 # Create the connection and token for Spotify
 # Returns Auth_manager, Spotify, and Token objects
 def create_spotify():
+    success = False
+    num_try = 0
     auth_manager = SpotifyOAuth(
         client_id     = CLIENT_ID,
         client_secret = CLIENT_SECRET,
@@ -129,7 +135,21 @@ def create_spotify():
     spotify = spotipy.Spotify(
         client_credentials_manager = auth_manager
     )
-    auth_token = spotify.auth_manager.get_access_token()
+  # Try to obtain a token, delete .cache if it fails and try again
+    while success is False:
+        if num_try >= 3:
+            print('Made {} attempts to authenticate. All failed'.format(num_try))
+            #should replace with exception
+            return auth_manager, spotify, {}
+        try:
+            auth_token = spotify.auth_manager.get_access_token()
+            print('Success! Took {} attempts.'.format(num_try))
+            success = True
+        except spotipy.oauth2.SpotifyOauthError as e:
+            if file_exists(CACHE_FILE):
+                remove_file(CACHE_FILE)
+            num_try += 1
+            print(e)
     return auth_manager, spotify, auth_token
 
 
@@ -144,6 +164,23 @@ def refresh_spotify(auth_manager, spotify, auth_token=None):
     return auth_manager, spotify, auth_token
 
 
+# Get the now playing cover art
+def get_now_playing_art(sp):
+    current_playback = spotify.current_playback()
+    if current_playback.get('context').get('type').lower() == 'playlist':
+        playlist_id = str(current_playback.get('context').get('uri').split(':')[2])
+        try:
+            now_playing_art_url = spotify.playlist_cover_image(
+                '{}'.format(playlist_id))[0].get('url')
+        except IndexError:
+            now_playing_art_url = None
+    else:
+        for image in current_playback.get('item').get('album').get('images'):
+            if image.get('height') >= 640:
+                now_playing_art_url = image.get('url')
+    return now_playing_art_url
+
+
 # I tossed this together as a simple test, needs work
 # It fails if Spotify is not currently playing
 def get_now_playing(spotify):
@@ -155,10 +192,6 @@ def get_now_playing(spotify):
     else:
         artist_name, album_name, track_name = None, None, None
     return artist_name, album_name, track_name
-
-
-if __name__ == '__main__':
-    pass
 
 
 '''
