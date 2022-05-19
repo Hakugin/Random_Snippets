@@ -173,6 +173,7 @@ def get_now_playing_art(sp):
             now_playing_art_url = spotify.playlist_cover_image(
                 '{}'.format(playlist_id))[0].get('url')
         except IndexError:
+          # Should return location of "stock" art
             now_playing_art_url = None
     else:
         for image in current_playback.get('item').get('album').get('images'):
