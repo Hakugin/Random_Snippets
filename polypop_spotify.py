@@ -9,12 +9,13 @@ import spotipy
 import time
 from pathlib import Path # I use this instead of os.path
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.cache_handler import CacheFileHandler
 
 
 # Path related
 DIR_PATH   = Path(r'~/PolyPop/UIX/Sources/Spotify/')
-TEMP_PATH  = Path(r'd:\spotify')
 #CACHE_FILE = Path(r'{}/.cache'.format(DIR_PATH.expanduser()))
+TEMP_PATH  = Path(r'd:\spotify')
 CACHE_FILE = Path(r'{}/.cache'.format(TEMP_PATH))
 
 
@@ -23,7 +24,6 @@ CLIENT_ID     = ''
 CLIENT_SECRET = ''
 SCOPE         = "user-read-playback-state,user-library-read,user-modify-playback-state,user-read-currently-playing,playlist-read-private"
 REDIRECT_URI  = "http://localhost:38042"
-CACHE_FILE_HANDLER = spotipy.cache_handler.CacheFileHandler(CACHE_FILE)
 
 # Note: Added playlist-read-private to scope to retrieve private playlists
 
@@ -33,7 +33,6 @@ CACHE_FILE_HANDLER = spotipy.cache_handler.CacheFileHandler(CACHE_FILE)
 SHUFFLE_STATE = False # Allowed: True | False
 REPEAT_STATE  = 'off' # Allowed: 'track' | 'context' | 'off'
 CURRENT_VOL   = 25    # Set to an arbitrary low number
-ALL_PLAYLISTS = {}
 
 
 # Volume Formatting
@@ -130,7 +129,7 @@ def create_spotify():
         client_secret = CLIENT_SECRET,
         redirect_uri  = REDIRECT_URI,
         scope         = SCOPE,
-        cache_handler = CACHE_FILE_HANDLER
+        cache_handler = CacheFileHandler(CACHE_FILE)
     )
     spotify = spotipy.Spotify(
         client_credentials_manager = auth_manager
@@ -140,7 +139,7 @@ def create_spotify():
         if num_try >= 3:
             print('Made {} attempts to authenticate. All failed'.format(num_try))
             #should replace with exception
-            return auth_manager, spotify, {}
+            return spotify, {}
         try:
             auth_token = spotify.auth_manager.get_access_token()
             print('Success! Took {} attempts.'.format(num_try))
@@ -150,27 +149,26 @@ def create_spotify():
                 remove_file(CACHE_FILE)
             num_try += 1
             print(e)
-    return auth_manager, spotify, auth_token
+    return spotify, auth_token
 
 
 # Check token expiration, recreate if needed
-# Accepts auth_manager, spotify, auth_token objects
+# Accepts spotify, auth_token objects
 # Returns these objects as well
-def refresh_spotify(auth_manager, spotify, auth_token=None):
-    if auth_token == None:
-        auth_token = auth_manager.cache_handler.get_cached_token()
-    if auth_manager.is_token_expired(auth_token):
-        auth_manager, spotify, auth_token = create_spotify()
-    return auth_manager, spotify, auth_token
+def refresh_spotify(spotify, auth_token=None):
+    auth_token = auth_token or spotify.auth_manager.cache_handler.get_cached_token()
+    if spotify.auth_manager.is_token_expired(auth_token):
+        spotify, auth_token = create_spotify()
+    return spotify, auth_token
 
 
 # Get the now playing cover art
 def get_now_playing_art(sp):
-    current_playback = spotify.current_playback()
+    current_playback = sp.current_playback()
     if current_playback.get('context').get('type').lower() == 'playlist':
         playlist_id = str(current_playback.get('context').get('uri').split(':')[2])
         try:
-            now_playing_art_url = spotify.playlist_cover_image(
+            now_playing_art_url = sp.playlist_cover_image(
                 '{}'.format(playlist_id))[0].get('url')
         except IndexError:
           # Should return location of "stock" art
@@ -200,9 +198,9 @@ def get_now_playing(spotify):
   # Basic usage for getting track info
 
 if __name__ == '__main__':
-    auth_manager, spotify, auth_token = create_spotify()
+    spotify, auth_token = create_spotify()
     while True:
-        auth_manager, spotify, auth_token = refresh_spotify(auth_manager, spotify, auth_token)
+        spotify, auth_token = refresh_spotify(spotify, auth_token)
         artist_name, album_name, track_name = get_now_playing(spotify)
         if track_name != None:
             print('Artist: {}, Album: {}, Track: {}'.format(
