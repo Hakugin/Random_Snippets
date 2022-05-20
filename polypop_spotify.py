@@ -6,17 +6,16 @@
 #----------------------------------------------------------------
 
 import spotipy
-import time
 from pathlib import Path # I use this instead of os.path
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.cache_handler import CacheFileHandler
 
 
 # Path related
-DIR_PATH   = Path(r'~/PolyPop/UIX/Sources/Spotify/')
-#CACHE_FILE = Path(r'{}/.cache'.format(DIR_PATH.expanduser()))
+DIR_PATH   = Path(Path.home(),'PolyPop/UIX/Sources/Spotify/')
+#CACHE_FILE = Path(DIR_PATH, '.cache-spotify')
 TEMP_PATH  = Path(r'd:\spotify')
-CACHE_FILE = Path(r'{}/.cache'.format(TEMP_PATH))
+CACHE_FILE = Path(TEMP_PATH, '.cache-spotify')
 
 
 # Spotify Required
@@ -123,7 +122,7 @@ def remove_file(doomed_file):
 # Returns Auth_manager, Spotify, and Token objects
 def create_spotify():
     success = False
-    num_try = 0
+    num_try = 1
     auth_manager = SpotifyOAuth(
         client_id     = CLIENT_ID,
         client_secret = CLIENT_SECRET,
